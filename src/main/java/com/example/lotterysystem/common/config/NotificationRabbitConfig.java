@@ -21,9 +21,39 @@ public class NotificationRabbitConfig {
     public static final String NOTIFICATION_EXCHANGE_NAME = "NotificationExchange";
     public static final String NOTIFICATION_ROUTING_KEY = "NotificationRouting";
 
+    public static final String NOTIFICATION_DLX_QUEUE_NAME = "NotificationDlxQueue";
+    public static final String NOTIFICATION_DLX_EXCHANGE_NAME = "NotificationDlxExchange";
+    public static final String NOTIFICATION_DLX_ROUTING_KEY = "NotificationDlxRouting";
+
+    /**
+     * 通知队列：消费重试耗尽后进入死信队列，不再被直接丢弃。
+     *
+     * <p>注意：已经存在的队列不能直接加死信参数，RabbitMQ 会因为参数不一致拒绝声明。
+     * 本地环境删掉空的 NotificationQueue 让程序重建即可；生产环境应改用 policy 配置死信，不要删队列。</p>
+     */
     @Bean
     public Queue notificationQueue() {
-        return QueueBuilder.durable(NOTIFICATION_QUEUE_NAME).build();
+        return QueueBuilder.durable(NOTIFICATION_QUEUE_NAME)
+                .deadLetterExchange(NOTIFICATION_DLX_EXCHANGE_NAME)
+                .deadLetterRoutingKey(NOTIFICATION_DLX_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Queue notificationDlxQueue() {
+        return QueueBuilder.durable(NOTIFICATION_DLX_QUEUE_NAME).build();
+    }
+
+    @Bean
+    public DirectExchange notificationDlxExchange() {
+        return new DirectExchange(NOTIFICATION_DLX_EXCHANGE_NAME, true, false);
+    }
+
+    @Bean
+    public Binding notificationDlxBinding() {
+        return BindingBuilder.bind(notificationDlxQueue())
+                .to(notificationDlxExchange())
+                .with(NOTIFICATION_DLX_ROUTING_KEY);
     }
 
     @Bean

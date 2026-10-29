@@ -11,10 +11,12 @@ import java.util.TreeMap;
 
 import static com.example.lotterysystem.common.config.NotificationRabbitConfig.NOTIFICATION_EXCHANGE_NAME;
 import static com.example.lotterysystem.common.config.NotificationRabbitConfig.NOTIFICATION_ROUTING_KEY;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * T5 重复通知：中奖记录和通知任务（PUBLISHED）先写好，同一条通知消息连续发两条，
  * 通知消费者并发 2、prefetch 1。用 SpyBean 统计 mock 短信工具对这个中奖人实际发送的次数。
+ * 步骤 5 修复后加了断言：每个任务只发送一次。
  *
  * <p>运行：./mvnw test -Prepro -Dtest=T5DuplicateNotificationTest -Drounds=100</p>
  */
@@ -48,6 +50,9 @@ class T5DuplicateNotificationTest extends ReproSupport {
         }
         report(NAME, "---- 汇总 ----");
         report(NAME, "总轮数=" + rounds + "，{发送次数=轮数} " + sendsDistribution);
+
+        // 步骤 5 的验收条件：同一条通知消息同时到达两次，每个任务只发送一次
+        assertEquals(Map.of(1, rounds), sendsDistribution, "{发送次数=轮数}");
     }
 
     private int sendCount(String phone) {

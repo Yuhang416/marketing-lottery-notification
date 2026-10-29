@@ -38,11 +38,19 @@ public interface ServiceErrorCodeConstants {
     ErrorCode ACTIVITY_COMPLETED = new ErrorCode(401, "抽奖活动已完成，无法抽奖");
     ErrorCode ACTIVITY_PRIZE_COMPLETED = new ErrorCode(402, "当前奖品已经被抽取，无法抽奖");
     ErrorCode WINNER_PRIZE_AMOUNT_ERROR = new ErrorCode(403, "中奖人数与奖品数量不一致，无法抽奖");
+    ErrorCode DRAW_MESSAGE_SEND_FAILED = new ErrorCode(404, "开奖消息发送失败，请重试");
 
 
 
     // ------ 图片错误码 --------
 
     ErrorCode PIC_UPLOAD_ERROR = new ErrorCode(500, "图片上传失败");
+
+
+    // ------ 死信错误码 --------
+
+    ErrorCode DEAD_LETTER_NOT_FOUND = new ErrorCode(600, "死信记录不存在");
+    ErrorCode DEAD_LETTER_ALREADY_REPLAYED = new ErrorCode(601, "死信记录已经重放过");
+    ErrorCode DEAD_LETTER_REPLAY_FAILED = new ErrorCode(602, "死信重放发送失败，请重试");
 
 }

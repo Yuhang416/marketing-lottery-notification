@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * 本地 RabbitMQ + MySQL 集成测试。
  *
- * 每次运行会清理并重新插入带有“自动化测试”标记的数据，因此不依赖老师电脑中的固定 ID。
+ * 每次运行会清理并重新插入带有“自动化测试”标记的数据，因此不依赖库里已有的固定 ID。
  * 测试成功后的数据会保留在本地数据库，便于在页面或 SQL 中查看；下一次运行前会自动清理。
  */
 @SpringBootTest

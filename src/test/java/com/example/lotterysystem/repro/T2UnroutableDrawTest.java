@@ -11,11 +11,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.DLX_QUEUE_NAME;
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.QUEUE_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * T2 开奖入口：删掉开奖交换机到开奖队列的绑定，让消息路由不到，再调用开奖。
  * 控制器只要 service 没抛异常就返回 success(true)，所以看 service 是否抛异常即可。
- * 测试结束后恢复绑定。
+ * 测试结束后恢复绑定。步骤 3 修复后加了断言：这种情况下接口不能返回成功。
  *
  * <p>运行：./mvnw test -Prepro -Dtest=T2UnroutableDrawTest -Drounds=3</p>
  */
@@ -76,5 +77,8 @@ class T2UnroutableDrawTest extends ReproSupport {
         }
         report(NAME, "---- 汇总 ----");
         report(NAME, "总轮数=" + rounds + "，接口返回成功=" + apiSuccess + "，消息既不在队列也不在死信（丢失）=" + lost);
+
+        // 步骤 3 的验收条件：消息进不了队列时，接口不能返回成功
+        assertEquals(0, apiSuccess, "消息路由不到时接口返回成功的次数");
     }
 }
