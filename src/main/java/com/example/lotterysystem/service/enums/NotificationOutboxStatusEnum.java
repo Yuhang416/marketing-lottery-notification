@@ -10,6 +10,8 @@ public enum NotificationOutboxStatusEnum {
     PUBLISHED,
     /** 短信或邮件已成功处理。 */
     DONE,
-    /** 本次开奖被补偿，任务不应继续发送。 */
-    CANCELLED
+    /** 回查不到对应的中奖记录，任务不应继续发送。 */
+    CANCELLED,
+    /** 投递重试达到上限仍未成功，已停止重试并告警，需要人工处理。 */
+    FAILED
 }

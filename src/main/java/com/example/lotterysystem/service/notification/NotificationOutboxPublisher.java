@@ -29,6 +29,8 @@ public class NotificationOutboxPublisher {
     private NotificationOutboxMapper notificationOutboxMapper;
     @Autowired
     private RabbitTemplate rabbitTemplate;
+    @Autowired
+    private NotificationOutboxClaimer notificationOutboxClaimer;
     @Value("${notification.outbox.batch-size:20}")
     private int batchSize;
 
@@ -52,19 +54,25 @@ public class NotificationOutboxPublisher {
                 return;
             }
 
-            // 不更新状态：任务保持 PENDING，下一轮定时扫描会再次投递。
-            log.warn("MQ 确认失败，notificationId={}, cause={}",
-                    correlationData.getId(), cause);
+            // 只记录原因：任务保持 PENDING，领取时设置的租约到期后会被重新领取投递。
+            String error = correlationData.getReturned() != null
+                    ? "消息被退回：" + correlationData.getReturned().getReplyText()
+                    : "Broker 拒收：" + cause;
+            notificationOutboxMapper.recordError(correlationData.getId(),
+                    NotificationOutboxClaimer.truncate(error));
+            log.warn("MQ 确认失败，notificationId={}, error={}",
+                    correlationData.getId(), error);
         });
     }
 
     /**
-     * 默认每 3 秒扫描一次 PENDING 任务，每次最多投递 20 条；两个值都可以在配置里调整。
+     * 默认每 3 秒领取一次到期任务，每次最多 20 条；两个值都可以在配置里调整。
+     * 领取在 claimer 的事务里完成并提交，投递在事务外面做。
      */
     @Scheduled(fixedDelayString = "${notification.outbox.publish-interval-ms:3000}",
             initialDelayString = "${notification.outbox.publish-initial-delay-ms:0}")
     public void publishPendingTasks() {
-        List<NotificationOutboxDO> tasks = notificationOutboxMapper.selectPending(batchSize);
+        List<NotificationOutboxDO> tasks = notificationOutboxClaimer.claim(batchSize);
         for (NotificationOutboxDO task : tasks) {
             publish(task);
         }
@@ -80,8 +88,10 @@ public class NotificationOutboxPublisher {
             log.info("通知任务已提交给 RabbitMQ，等待 Confirm，notificationId={}",
                     task.getNotificationId());
         } catch (Exception e) {
-            // 发送异常也不更新状态，任务仍然是 PENDING，下一轮会继续扫描到它。
-            log.warn("通知任务发送异常，将在下一轮扫描时重试，notificationId={}",
+            // 发送异常也只记录原因，任务仍然是 PENDING，租约到期后会被重新领取。
+            notificationOutboxMapper.recordError(task.getNotificationId(),
+                    NotificationOutboxClaimer.truncate("发送异常：" + e.getMessage()));
+            log.warn("通知任务发送异常，租约到期后重试，notificationId={}",
                     task.getNotificationId(), e);
         }
     }
