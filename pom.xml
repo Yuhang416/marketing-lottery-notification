@@ -16,6 +16,8 @@
 	<properties>
 		<java.version>17</java.version>
 		<maven.test.skip>true</maven.test.skip>
+		<!-- 复现测试耗时长，普通测试运行时排除；用 -Prepro 单独运行 -->
+		<excludedGroups>repro</excludedGroups>
 	</properties>
 	<dependencies>
 		<!-- RabbitMQ -->
@@ -127,5 +129,17 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!-- 可靠性复现测试：./mvnw test -Prepro -Dtest=类名 -->
+		<profile>
+			<id>repro</id>
+			<properties>
+				<maven.test.skip>false</maven.test.skip>
+				<groups>repro</groups>
+				<excludedGroups>none</excludedGroups>
+			</properties>
+		</profile>
+	</profiles>
 
 </project>
