@@ -34,20 +34,6 @@ public interface WinningRecordMapper {
                                                     @Param("prizeId") Long prizeId,
                                                     @Param("winnerId") Long winnerId);
 
-    /**
-     * 删除活动 或 奖品下的中奖记录
-     * @param activityId
-     * @param prizeId
-     */
-    @Delete("<script>" +
-            " delete from winning_record" +
-            " where activity_id = #{activityId}" +
-            " <if test=\"prizeId != null\">" +
-            "   and prize_id = #{prizeId}" +
-            " </if>" +
-            " </script>")
-    void deleteRecords(@Param("activityId") Long activityId, @Param("prizeId") Long prizeId);
-
     @Select("<script>" +
             " select * from winning_record" +
             " where activity_id = #{activityId}" +

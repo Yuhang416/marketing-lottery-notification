@@ -31,14 +31,6 @@ public interface DrawPrizeService {
     List<WinningRecordDO> saveWinnerRecords(DrawPrizeParam param);
 
     /**
-     * 删除活动/奖品下的中奖记录
-     *
-     * @param activityId
-     * @param prizeId
-     */
-    void deleteRecords(Long activityId, Long prizeId);
-
-    /**
      * 获取中奖记录
      *
      * @param param

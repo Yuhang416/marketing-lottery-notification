@@ -11,12 +11,4 @@ public interface ActivityStatusManager {
      */
     void handlerEvent(ConvertActivityStatusDTO convertActivityStatusDTO);
 
-
-    /**
-     * 回滚处理活动相关状态
-     *
-     * @param convertActivityStatusDTO
-     */
-    void rollbackHandlerEvent(ConvertActivityStatusDTO convertActivityStatusDTO);
-
 }

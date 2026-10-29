@@ -32,4 +32,13 @@ public interface ActivityPrizeMapper {
     void updateStatus(@Param("activityId") Long activityId,
                       @Param("prizeId") Long prizeId,
                       @Param("status") String status);
+
+    /**
+     * 开奖时抢占奖品：只有 INIT 状态才能改成 COMPLETED。
+     * 返回 1 表示抢到了，返回 0 表示这个奖已经开过（或正在被另一个事务开）。
+     */
+    @Update("update activity_prize set status = 'COMPLETED'" +
+            " where activity_id = #{activityId} and prize_id = #{prizeId} and status = 'INIT'")
+    int completeIfInit(@Param("activityId") Long activityId,
+                       @Param("prizeId") Long prizeId);
 }
