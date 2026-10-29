@@ -11,6 +11,11 @@ public class DirectRabbitConfig {
     public static final String QUEUE_NAME = "DirectQueue";
     public static final String EXCHANGE_NAME = "DirectExchange";
     public static final String ROUTING = "DirectRouting";
+    /**
+     * 开奖消息 CorrelationData id 的前缀。RabbitTemplate 只有一个确认回调（在 Outbox 投递器里），
+     * 开奖消息的确认也会进到那里，回调靠这个前缀区分并忽略开奖消息。
+     */
+    public static final String DRAW_CORRELATION_PREFIX = "draw:";
 
     public static final String DLX_QUEUE_NAME = "DlxDirectQueue";
     public static final String DLX_EXCHANGE_NAME = "DlxDirectExchange";

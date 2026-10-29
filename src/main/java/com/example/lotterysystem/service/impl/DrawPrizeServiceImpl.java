@@ -18,8 +18,10 @@ import com.example.lotterysystem.service.enums.NotificationChannelEnum;
 import com.example.lotterysystem.service.enums.NotificationOutboxStatusEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -28,8 +30,12 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
+import static com.example.lotterysystem.common.config.DirectRabbitConfig.DRAW_CORRELATION_PREFIX;
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.EXCHANGE_NAME;
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.ROUTING;
 
@@ -57,14 +63,36 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
     private NotificationOutboxMapper notificationOutboxMapper;
     @Autowired
     private RedisUtil redisUtil;
+    @Value("${draw.publish-confirm-timeout-ms:3000}")
+    private long publishConfirmTimeoutMs;
 
     @Override
     public void drawPrize(DrawPrizeParam param) {
+        String messageId = String.valueOf(UUID.randomUUID());
         Map<String, String> map = new HashMap<>();
-        map.put("messageId", String.valueOf(UUID.randomUUID()));
+        map.put("messageId", messageId);
         map.put("messageData", JacksonUtil.writeValueAsString(param));
-        // 发消息: 交换机、绑定的key、消息体
-        rabbitTemplate.convertAndSend(EXCHANGE_NAME, ROUTING, map);
+        // 发消息: 交换机、绑定的key、消息体，带上 CorrelationData 用来拿 Broker 的确认结果
+        CorrelationData correlationData = new CorrelationData(DRAW_CORRELATION_PREFIX + messageId);
+        rabbitTemplate.convertAndSend(EXCHANGE_NAME, ROUTING, map, correlationData);
+
+        // 等 Broker 确认：ack 并且没有被退回，消息才算进了开奖队列，接口才能返回成功。
+        // 失败就让运营重试；重复的开奖消息由 DrawSettlementService 的条件更新挡住，重试是安全的
+        CorrelationData.Confirm confirm;
+        try {
+            confirm = correlationData.getFuture().get(publishConfirmTimeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceException(ServiceErrorCodeConstants.DRAW_MESSAGE_SEND_FAILED);
+        } catch (ExecutionException | TimeoutException e) {
+            logger.error("等待开奖消息确认失败，messageId={}", messageId, e);
+            throw new ServiceException(ServiceErrorCodeConstants.DRAW_MESSAGE_SEND_FAILED);
+        }
+        if (!confirm.isAck() || correlationData.getReturned() != null) {
+            logger.error("开奖消息没有进入队列，messageId={}, ack={}, cause={}, returned={}",
+                    messageId, confirm.isAck(), confirm.getReason(), correlationData.getReturned());
+            throw new ServiceException(ServiceErrorCodeConstants.DRAW_MESSAGE_SEND_FAILED);
+        }
         logger.info("mq消息发送成功：map={}", JacksonUtil.writeValueAsString(map));
     }
 

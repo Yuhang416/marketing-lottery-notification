@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 
+import static com.example.lotterysystem.common.config.DirectRabbitConfig.DRAW_CORRELATION_PREFIX;
 import static com.example.lotterysystem.common.config.NotificationRabbitConfig.NOTIFICATION_EXCHANGE_NAME;
 import static com.example.lotterysystem.common.config.NotificationRabbitConfig.NOTIFICATION_ROUTING_KEY;
 
@@ -38,7 +39,9 @@ public class NotificationOutboxPublisher {
     @PostConstruct
     void registerPublisherCallbacks() {
         rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
-            if (correlationData == null) {
+            // 开奖消息的确认也会进到这个回调：它由开奖接口自己通过 CorrelationData 等结果，这里忽略
+            if (correlationData == null
+                    || correlationData.getId().startsWith(DRAW_CORRELATION_PREFIX)) {
                 return;
             }
 

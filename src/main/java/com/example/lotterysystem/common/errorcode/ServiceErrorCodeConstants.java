@@ -38,6 +38,7 @@ public interface ServiceErrorCodeConstants {
     ErrorCode ACTIVITY_COMPLETED = new ErrorCode(401, "抽奖活动已完成，无法抽奖");
     ErrorCode ACTIVITY_PRIZE_COMPLETED = new ErrorCode(402, "当前奖品已经被抽取，无法抽奖");
     ErrorCode WINNER_PRIZE_AMOUNT_ERROR = new ErrorCode(403, "中奖人数与奖品数量不一致，无法抽奖");
+    ErrorCode DRAW_MESSAGE_SEND_FAILED = new ErrorCode(404, "开奖消息发送失败，请重试");
 
 
 
