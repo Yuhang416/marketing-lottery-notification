@@ -209,6 +209,8 @@ abstract class ReproSupport {
         List<Long> activityIds = jdbcTemplate.queryForList(
                 "select id from activity where activity_name like 'REPRO-%'", Long.class);
         for (Long id : activityIds) {
+            jdbcTemplate.update("delete d from dead_letter_record d join notification_outbox o"
+                    + " on d.message_body like concat('%', o.notification_id, '%') where o.activity_id = ?", id);
             jdbcTemplate.update("delete from notification_outbox where activity_id = ?", id);
             jdbcTemplate.update("delete from winning_record where activity_id = ?", id);
             jdbcTemplate.update("delete from activity_user where activity_id = ?", id);
