@@ -64,12 +64,17 @@ public class DeadLetterServiceImpl implements DeadLetterService {
         record.setFirstDeathTime(death.get("time") instanceof Date d ? d : null);
         deadLetterRecordMapper.insert(record);
 
-        // 通知类的死信：任务停止处理，等人工重放
+        // 通知类的死信：任务停止处理，等人工重放。
+        // 消息体可能本身就是坏的，解析失败只打日志，不能抛出：抛出会让这条死信被重试、重复落库
         if (NOTIFICATION_QUEUE_NAME.equals(record.getSourceQueue())) {
-            Map<?, ?> payload = JacksonUtil.readValue(body, Map.class);
-            String notificationId = String.valueOf(payload.get("notificationId"));
-            notificationOutboxMapper.markFailedByNotificationId(notificationId,
-                    "通知消费重试耗尽，进入死信，死信记录 id=" + record.getId());
+            try {
+                Map<?, ?> payload = JacksonUtil.readValue(body, Map.class);
+                String notificationId = String.valueOf(payload.get("notificationId"));
+                notificationOutboxMapper.markFailedByNotificationId(notificationId,
+                        "通知消费重试耗尽，进入死信，死信记录 id=" + record.getId());
+            } catch (Exception e) {
+                logger.error("通知死信的消息体无法解析，没有更新任务状态，死信记录 id={}", record.getId(), e);
+            }
         }
         logger.error("死信已记录，死信记录 id={}, queue={}, reason={}, count={}",
                 record.getId(), record.getSourceQueue(), record.getReason(), record.getDeathCount());
