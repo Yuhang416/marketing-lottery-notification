@@ -23,6 +23,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 import static com.example.lotterysystem.common.config.NotificationRabbitConfig.NOTIFICATION_QUEUE_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * T3 双实例投递。由 scripts/repro-t3.sh 按角色分别运行：
@@ -32,6 +33,7 @@ import static com.example.lotterysystem.common.config.NotificationRabbitConfig.N
  *   <li>count：读空通知队列，统计每个任务被投递了几次。</li>
  * </ul>
  * repro-t3 配置关掉了所有消费者和自动扫描，消息会留在通知队列里等 count 来数。
+ * 步骤 4 修复后加了断言：每个任务只投递一次。
  */
 @ActiveProfiles({"local", "repro", "repro-t3"})
 class T3DuplicatePublishTest extends ReproSupport {
@@ -146,5 +148,9 @@ class T3DuplicatePublishTest extends ReproSupport {
                 taskCount, ourMessages, others, ourMessages - deliveries.size()));
         report(NAME, "{投递次数=任务数} " + distribution + "，任务状态 " + statuses);
         cleanupReproData();
+
+        // 步骤 4 的验收条件：两个实例同时扫描，每个任务只投递一次
+        assertEquals(0, ourMessages - deliveries.size(), "重复投递条数");
+        assertEquals(taskCount, deliveries.size(), "被投递的任务数");
     }
 }
