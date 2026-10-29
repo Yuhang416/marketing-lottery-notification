@@ -75,14 +75,43 @@ public interface NotificationOutboxMapper {
     int markPublished(@Param("notificationId") String notificationId);
 
     /**
-     * 通知工具明确成功后才把任务结案。
-     * 包含 FAILED：消息可能已经进了队列、只是确认丢了，任务被重试到上限；消息之后仍会被消费并发出，状态应以实际发送为准。
+     * 消费者抢占发送权：只有一个消费者能把任务改成 SENDING，影响 0 行说明别人正在发或已经发完。
+     * 包含 FAILED：消息可能已经进了队列、只是确认丢了，任务被重试到上限；也包括人工重放死信的情况。
+     * next_retry_time 在 SENDING 状态下当作发送租约，到期还没结束会被回收。
      */
     @Update("update notification_outbox " +
-            "set status = 'DONE', gmt_modified = now() " +
+            "set status = 'SENDING', next_retry_time = #{leaseUntil}, gmt_modified = now() " +
             "where notification_id = #{notificationId} " +
             "and status in ('PENDING', 'PUBLISHED', 'FAILED')")
+    int claimForSending(@Param("notificationId") String notificationId, @Param("leaseUntil") Date leaseUntil);
+
+    /** 发送失败时交还发送权，进程内重试时才能重新抢到。 */
+    @Update("update notification_outbox " +
+            "set status = 'PUBLISHED', gmt_modified = now() " +
+            "where notification_id = #{notificationId} and status = 'SENDING'")
+    int releaseSending(@Param("notificationId") String notificationId);
+
+    /** 通知工具明确成功后才把任务结案，只有抢到发送权的消费者能结案。 */
+    @Update("update notification_outbox " +
+            "set status = 'DONE', gmt_modified = now() " +
+            "where notification_id = #{notificationId} and status = 'SENDING'")
     int markDone(@Param("notificationId") String notificationId);
+
+    /**
+     * 回收发送租约已到期的任务：消费者抢到发送权后崩溃，任务会一直停在 SENDING。
+     * 改回 PENDING 并立即可领取，由投递器重新投递。条件更新，多个实例同时执行也没问题。
+     */
+    @Update("update notification_outbox " +
+            "set status = 'PENDING', next_retry_time = #{now}, gmt_modified = now() " +
+            "where status = 'SENDING' and next_retry_time <= #{now}")
+    int reclaimExpiredSending(@Param("now") Date now);
+
+    /** 通知消息进入死信：停止处理，等人工重放。 */
+    @Update("update notification_outbox " +
+            "set status = 'FAILED', last_error = #{lastError}, gmt_modified = now() " +
+            "where notification_id = #{notificationId} and status in ('PENDING', 'PUBLISHED', 'SENDING')")
+    int markFailedByNotificationId(@Param("notificationId") String notificationId,
+                                   @Param("lastError") String lastError);
 
     /** 已找不到对应中奖记录时，不应继续发送一条过期通知。 */
     @Update("update notification_outbox " +

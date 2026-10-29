@@ -32,8 +32,18 @@ public class SMSUtil {
      * @param templateParam 模板参数 {"key":"value"}
      */
     public boolean sendMessage(String templateCode, String phoneNumbers, String templateParam) {
+        return sendMessage(templateCode, phoneNumbers, templateParam, null);
+    }
+
+    /**
+     * 发送短信，并带上业务流水号。
+     *
+     * @param outId 外部流水号，短信平台原样回传。发送端只能保证至少发一次，
+     *              重复发送时下游可以用它去重；通知链路传 notificationId
+     */
+    public boolean sendMessage(String templateCode, String phoneNumbers, String templateParam, String outId) {
         if (mockEnabled) {
-            logger.info("[MOCK] 短信发送成功，templateCode={}", templateCode);
+            logger.info("[MOCK] 短信发送成功，templateCode={}, outId={}", templateCode, outId);
             return true;
         }
         try {
@@ -42,7 +52,8 @@ public class SMSUtil {
                     .setSignName(signName)
                     .setTemplateCode(templateCode)
                     .setPhoneNumbers(phoneNumbers)
-                    .setTemplateParam(templateParam);
+                    .setTemplateParam(templateParam)
+                    .setOutId(outId);
             RuntimeOptions runtime = new RuntimeOptions();
             SendSmsResponse response = client.sendSmsWithOptions(sendSmsRequest, runtime);
             if (null != response.getBody()
