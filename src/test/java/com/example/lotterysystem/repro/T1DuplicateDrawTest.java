@@ -12,10 +12,12 @@ import java.util.Map;
 
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.DLX_QUEUE_NAME;
 import static com.example.lotterysystem.common.config.DirectRabbitConfig.QUEUE_NAME;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * T1 重复开奖：同一个奖品的开奖消息连续发两条，开奖消费者并发 2、prefetch 1，
  * 两条消息会分给两个消费者同时处理。每轮结束后统计中奖记录、奖品状态、通知任务。
+ * 步骤 2 修复后加了断言：误撤销和重复都必须是 0。
  *
  * <p>运行：./mvnw test -Prepro -Dtest=T1DuplicateDrawTest -Drounds=100</p>
  */
@@ -87,5 +89,10 @@ class T1DuplicateDrawTest extends ReproSupport {
         report(NAME, "总轮数=" + rounds + "，" + outcomes);
         report(NAME, "有消息进入开奖死信队列的轮数=" + deadLetterRounds);
         report(NAME, "误撤销且通知已经发出（任务 DONE）的轮数=" + notifiedButRevoked);
+
+        // 步骤 2 的验收条件：每一轮都只开奖一次，不误撤销、不重复
+        assertEquals(0, outcomes.get("误撤销"), "误撤销轮数");
+        assertEquals(0, outcomes.get("重复"), "重复轮数");
+        assertEquals(rounds, outcomes.get("正常"), "正常轮数");
     }
 }

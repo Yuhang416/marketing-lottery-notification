@@ -57,7 +57,8 @@ import java.util.function.Supplier;
 /**
  * 可靠性复现测试的公共部分：准备数据、等待状态稳定、输出统计。
  *
- * <p>复现测试连真实的 MySQL、Redis、RabbitMQ，只做统计、不做断言，
+ * <p>复现测试连真实的 MySQL、Redis、RabbitMQ。修复前只做统计、不做断言；
+ * 对应的问题修复后，在测试里加上验收断言。
  * 统计行以 [REPRO] 开头，同时追加到 target/repro/{测试名}.txt。
  * 测试数据都带 REPRO- 标记，cleanupReproData() 只删带标记的数据。</p>
  */

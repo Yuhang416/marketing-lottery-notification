@@ -2,7 +2,6 @@ package com.example.lotterysystem.service.activitystatus.impl;
 
 import com.example.lotterysystem.common.errorcode.ServiceErrorCodeConstants;
 import com.example.lotterysystem.common.exception.ServiceException;
-import com.example.lotterysystem.service.ActivityService;
 import com.example.lotterysystem.service.activitystatus.ActivityStatusManager;
 import com.example.lotterysystem.service.activitystatus.operater.AbstractActivityOperator;
 import com.example.lotterysystem.service.dto.ConvertActivityStatusDTO;
@@ -22,8 +21,6 @@ public class ActivityStatusManagerImpl implements ActivityStatusManager {
 
     @Autowired
     private List<AbstractActivityOperator> operators;
-    @Autowired
-    private ActivityService activityService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -35,29 +32,11 @@ public class ActivityStatusManagerImpl implements ActivityStatusManager {
             logger.warn("活动状态处理器为空！");
             return;
         }
-        Boolean update = false;
         // 第一阶段：只处理 sequence = 1 的人员、奖品。
-        update = processConvertStatus(convertActivityStatusDTO, 1);
+        processConvertStatus(convertActivityStatusDTO, 1);
         // 第二阶段：只处理 sequence = 2 的活动。
-        update = processConvertStatus(convertActivityStatusDTO, 2) || update;
-        // 更新缓存
-        if (update) {
-            activityService.cacheActivity(convertActivityStatusDTO.getActivityId());
-        }
-
-    }
-
-    @Override
-    public void rollbackHandlerEvent(ConvertActivityStatusDTO convertActivityStatusDTO) {
-        // operators：人员、奖品、活动
-        // 活动是否需要回滚？？ 绝对需要，
-        // 原因：奖品都恢复成INIT，那么这个活动下的奖品绝对没抽完
-        for (AbstractActivityOperator operator : operators) {
-            operator.convert(convertActivityStatusDTO);
-        }
-
-        // 缓存更新
-        activityService.cacheActivity(convertActivityStatusDTO.getActivityId());
+        processConvertStatus(convertActivityStatusDTO, 2);
+        // 活动缓存由调用方在事务提交后更新，避免事务回滚后缓存里留着回滚前的数据
     }
 
     /**

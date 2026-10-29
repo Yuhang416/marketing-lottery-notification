@@ -22,6 +22,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
@@ -149,22 +151,28 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
                 buildPendingNotificationTasks(winningRecordDOList);
         notificationOutboxMapper.batchInsert(notificationOutboxDOList);
 
-        // 缓存中奖者记录
+        // 缓存中奖者记录：要缓存的内容在事务里查好，等事务提交后再写 Redis，
+        // 避免事务回滚后缓存里留着回滚前的数据
         // 1、缓存奖品维度中奖记录(WinningRecord_activityId_prizeId, winningRecordDOList（奖品维度的中奖名单）)
-        cacheWinningRecords(param.getActivityId() + "_" + param.getPrizeId(),
-                winningRecordDOList,
-                WINNING_RECORDS_TIMEOUT);
+        String prizeKey = param.getActivityId() + "_" + param.getPrizeId();
 
         // 2、缓存活动维度中奖记录(WinningRecord_activityId, winningRecordDOList(活动维度的中奖名单))
         // 当活动已完成再去存放活动维度中奖记录
-        if (activityDO.getStatus()
-                .equalsIgnoreCase(ActivityStatusEnum.COMPLETED.name())) {
-            // 查询活动维度的全量中奖记录
-            List<WinningRecordDO> allList = winningRecordMapper.selectByActivityId(param.getActivityId());
-            cacheWinningRecords(String.valueOf(param.getActivityId()),
-                    allList,
-                    WINNING_RECORDS_TIMEOUT);
-        }
+        List<WinningRecordDO> allList = activityDO.getStatus()
+                .equalsIgnoreCase(ActivityStatusEnum.COMPLETED.name())
+                // 查询活动维度的全量中奖记录
+                ? winningRecordMapper.selectByActivityId(param.getActivityId())
+                : null;
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                cacheWinningRecords(prizeKey, winningRecordDOList, WINNING_RECORDS_TIMEOUT);
+                if (null != allList) {
+                    cacheWinningRecords(String.valueOf(param.getActivityId()), allList, WINNING_RECORDS_TIMEOUT);
+                }
+            }
+        });
 
         return winningRecordDOList;
 
@@ -200,25 +208,6 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
         task.setAttemptCount(0);
         task.setNextRetryTime(nextRetryTime);
         return task;
-    }
-
-    @Override
-    public void deleteRecords(Long activityId, Long prizeId) {
-        if (null == activityId) {
-            logger.warn("要删除中奖记录相关的活动id为空！");
-            return;
-        }
-        // 删除数据表
-        winningRecordMapper.deleteRecords(activityId, prizeId);
-
-        // 删除缓存（奖品维度、活动维度）
-        if (null != prizeId) {
-            deleteWinningRecords(activityId + "_" + prizeId);
-        }
-        // 无论是否传递了prizeId，都需要删除活动维度的中奖记录缓存：
-        // 如果传递了prizeId, 证明奖品未抽奖，必须删除活动维度的缓存记录
-        // 如果没有传递prizeId，就只是删除活动维度的信息
-        deleteWinningRecords(String.valueOf(activityId));
     }
 
     @Override
@@ -262,22 +251,6 @@ public class DrawPrizeServiceImpl implements DrawPrizeService {
                 }).collect(Collectors.toList());
     }
 
-
-    /**
-     * 从缓存中删除中奖记录
-     *
-     * @param key
-     */
-    private void deleteWinningRecords(String key) {
-        try {
-            if (redisUtil.hasKey(WINNING_RECORDS_PREFIX + key)) {
-                // 存在再删除
-                redisUtil.del(WINNING_RECORDS_PREFIX + key);
-            }
-        } catch (Exception e) {
-            logger.error("删除中奖记录缓存异常，key:{}", key);
-        }
-    }
 
     /**
      * 缓存中奖记录

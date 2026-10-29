@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# P2 两个事务之间进程退出：
-#   第一次运行：事务一（状态流转）提交后，在写中奖记录前 halt(1)，模拟进程被直接杀掉；
+# P2 开奖进行到一半时进程退出：
+#   第一次运行：状态流转之后、写中奖记录之前 halt(1)，模拟进程被直接杀掉；
 #   第二次运行：重新启动，开奖消息会被重新投递，看最后有没有中奖记录和通知任务。
 # 第一次运行时 Maven 会报 "The forked VM terminated"，这是预期的。
 #
@@ -16,7 +16,7 @@ RABBIT_USER="${RABBITMQ_USERNAME:-guest}:${RABBITMQ_PASSWORD:-guest}"
 
 $MVN -q test-compile || exit 1
 
-echo "== 第一次运行：事务一提交后进程退出"
+echo "== 第一次运行：开奖进行到一半时进程退出"
 $MVN surefire:test -Dtest='P2CrashBetweenTransactionsTest#crashAfterFirstTransaction' > target/repro/p2-crash.log 2>&1
 echo "Maven 退出码 $?（非 0 是预期的）"
 
