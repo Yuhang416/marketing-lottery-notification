@@ -1,0 +1,10 @@
+# 不打进镜像：构建产物、IDE 配置、本地交接文件
+target/
+.git/
+.idea/
+docs/private/
+CLAUDE.md
+.env
+# 这两份是本地配置，里面有真实的账号和密钥
+src/main/resources/application-dev.properties
+src/main/resources/application-test.properties
