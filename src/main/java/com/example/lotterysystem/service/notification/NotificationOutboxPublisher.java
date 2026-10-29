@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,8 @@ public class NotificationOutboxPublisher {
     private NotificationOutboxMapper notificationOutboxMapper;
     @Autowired
     private RabbitTemplate rabbitTemplate;
+    @Value("${notification.outbox.batch-size:20}")
+    private int batchSize;
 
     /**
      * 不能把“调用 send”当成成功；只有 Broker ACK 且消息没有被退回时，
@@ -53,11 +56,12 @@ public class NotificationOutboxPublisher {
     }
 
     /**
-     * 每 3 秒扫描一次 PENDING 任务，每次最多投递 20 条。
+     * 默认每 3 秒扫描一次 PENDING 任务，每次最多投递 20 条；两个值都可以在配置里调整。
      */
-    @Scheduled(fixedDelay = 3000)
+    @Scheduled(fixedDelayString = "${notification.outbox.publish-interval-ms:3000}",
+            initialDelayString = "${notification.outbox.publish-initial-delay-ms:0}")
     public void publishPendingTasks() {
-        List<NotificationOutboxDO> tasks = notificationOutboxMapper.selectPending(20);
+        List<NotificationOutboxDO> tasks = notificationOutboxMapper.selectPending(batchSize);
         for (NotificationOutboxDO task : tasks) {
             publish(task);
         }
