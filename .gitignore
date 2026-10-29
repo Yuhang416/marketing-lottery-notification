@@ -35,3 +35,7 @@ build/
 # Local environments may contain passwords, access keys, or mailbox credentials.
 /src/main/resources/application-dev.properties
 /src/main/resources/application-test.properties
+
+### Claude Code 交接文件（只在本地使用，不提交）###
+CLAUDE.md
+docs/private/
