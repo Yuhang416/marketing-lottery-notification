@@ -46,4 +46,11 @@ public interface ServiceErrorCodeConstants {
 
     ErrorCode PIC_UPLOAD_ERROR = new ErrorCode(500, "图片上传失败");
 
+
+    // ------ 死信错误码 --------
+
+    ErrorCode DEAD_LETTER_NOT_FOUND = new ErrorCode(600, "死信记录不存在");
+    ErrorCode DEAD_LETTER_ALREADY_REPLAYED = new ErrorCode(601, "死信记录已经重放过");
+    ErrorCode DEAD_LETTER_REPLAY_FAILED = new ErrorCode(602, "死信重放发送失败，请重试");
+
 }

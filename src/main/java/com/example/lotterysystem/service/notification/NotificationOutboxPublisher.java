@@ -41,9 +41,11 @@ public class NotificationOutboxPublisher {
     @PostConstruct
     void registerPublisherCallbacks() {
         rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
-            // 开奖消息的确认也会进到这个回调：它由开奖接口自己通过 CorrelationData 等结果，这里忽略
+            // 一个 RabbitTemplate 只有这一个确认回调，开奖消息（draw:）和死信重放（replay:）的确认也会进来。
+            // 它们由发送方自己通过 CorrelationData 等结果，这里忽略；通知任务的 id 是 UUID，不带冒号
             if (correlationData == null
-                    || correlationData.getId().startsWith(DRAW_CORRELATION_PREFIX)) {
+                    || correlationData.getId().startsWith(DRAW_CORRELATION_PREFIX)
+                    || correlationData.getId().contains(":")) {
                 return;
             }
 
